@@ -150,14 +150,15 @@ if __name__ == "__main__":
         #Everyone is getting a chance to update
         playas = np.arange(0,Z,1)
         np.random.shuffle(playas)
-        
         for i in playas:
             strategies = strategy_update_all_async(
                 payoffs, strategies, Z, beta, 1./Z, i)
         '''
+        #Evolutionary dynamics timescale much longer than MUG timescale
         strategies = strategy_update(
             payoffs, strategies, Z, beta, 1./Z)
         '''
+        
         #Store data
         strategy_evolution[g,:,:] = strategies
         payoff_evolution[g,:] = payoffs        

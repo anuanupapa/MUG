@@ -128,67 +128,86 @@ if __name__ == "__main__":
     payoff = single_MUG(strategies, 3, 2, 4)
     print(payoff)    
     '''
-    
-    Z = 1000
-    gen = 4000
-    nMUG = 10000
-    N = 15
-    M = 1
+    runs = 25
+    Z = 100
+    gen = 1000
+    nMUG = 1000
+    N = 12
     beta = 10
-    strategy_space1D = np.linspace(0,1,101)
-    strategies = np.random.choice(strategy_space1D, (Z,2))
-    strategy_evolution = np.zeros((gen,Z,2))
-    payoff_evolution = np.zeros((gen,Z))
-    
-    for g in range(gen):
-        payoffs = np.zeros((Z,))
-        
-        for i in range(nMUG):
-            payoff = single_MUG(strategies, N, M, Z)
-            payoffs = payoffs + payoff    
-        
-        #Everyone is getting a chance to update
-        playas = np.arange(0,Z,1)
-        np.random.shuffle(playas)
-        for i in playas:
-            strategies = strategy_update_all_async(
-                payoffs, strategies, Z, beta, 1./Z, i)
-        '''
-        #Evolutionary dynamics timescale much longer than MUG timescale
-        strategies = strategy_update(
-            payoffs, strategies, Z, beta, 1./Z)
-        '''
-        
-        #Store data
-        strategy_evolution[g,:,:] = strategies
-        payoff_evolution[g,:] = payoffs        
-        print(g)
-        #print(np.mean(strategies, axis=0))
+    N_arr = np.arange(2,16,1)
+    strategy_evolution = np.zeros((len(N_arr),runs,gen,Z,2))
+    payoff_evolution = np.zeros((len(N_arr),runs,gen,Z))
 
-    print(time.time()-tt)
+    for N in N_arr:
+        M = 1
 
-    strategy_mean = np.mean(strategy_evolution, axis=1)
-    strategy_std = np.std(strategy_evolution, axis=1)
-    t_arr = np.arange(1,gen+1,1)
-    
-    plt.plot(t_arr, strategy_mean[:,0],'bo-')
-    plt.fill_between(t_arr,
-                     strategy_mean[:,0]-strategy_std[:,0],
-                     strategy_mean[:,0]+strategy_std[:,0],
-                     alpha=0.3, color="b")
-    
-    plt.plot(t_arr, strategy_mean[:,1],'go-')
-    plt.fill_between(t_arr,
-                     strategy_mean[:,1]-strategy_std[:,1],
-                     strategy_mean[:,1]+strategy_std[:,1],
-                     alpha=0.3, color="g")
+        for run in range(runs):
+            strategy_space1D = np.linspace(0,1,101)
+            strategies = np.random.choice(strategy_space1D, (Z,2))
 
-    plt.title("M="+str(M)+" N="+str(N)+" Z="+str(Z))
-    plt.show()
+            for g in range(gen):
+                payoffs = np.zeros((Z,))
+                print("trial:", run, " gen:", g)
+
+                for i in range(nMUG):
+                    payoff = single_MUG(strategies, N, M, Z)
+                    payoffs = payoffs + payoff    
+
+                #Everyone is getting a chance to update
+                playas = np.arange(0,Z,1)
+                np.random.shuffle(playas)
+                for i in playas:
+                    strategies = strategy_update_all_async(
+                        payoffs, strategies, Z, beta, 1./Z, i)
+                '''
+                #Evolutionary dynamics timescale 
+                #much longer than MUG timescale
+                strategies = strategy_update(
+                    payoffs, strategies, Z, beta, 1./Z)
+                '''
+                #Store data
+                strategy_evolution[N-2,run,g,:,:] = strategies
+                payoff_evolution[N-2,run,g,:] = payoffs
+
+        strategy_mean = np.mean(np.mean(
+            strategy_evolution[N-2,:,:,:,:], axis=2), axis=0)
+        strategy_std = np.std(np.mean(
+            strategy_evolution[N-2,:,:,:,:], axis=2), axis=0)
+        t_arr = np.arange(1,gen+1,1)
+
+        plt.clf()
+        plt.plot(t_arr, strategy_mean[:,0],'bo-', label='<p>')
+        plt.fill_between(t_arr,
+                         strategy_mean[:,0]-strategy_std[:,0],
+                         strategy_mean[:,0]+strategy_std[:,0],
+                         alpha=0.3, color="b")
     
-    '''
-    np.savez("MUGdata_AllImitate_n50000_beta1000_N10_M1.npz",
+        plt.plot(t_arr, strategy_mean[:,1],'go-', label='<q>')
+        plt.fill_between(t_arr,
+                         strategy_mean[:,1]-strategy_std[:,1],
+                         strategy_mean[:,1]+strategy_std[:,1],
+                         alpha=0.3, color="g")
+
+        plt.legend()
+        plt.title("M="+str(M)+" N="+str(N)+" Z="+str(Z))
+        plt.savefig("Z100_Mmin/pblue-qgreen"
+                    +"_N"+str(N)+"_M"+str(M)+"_Z"+str(Z)
+                    +"allupdate.png")
+        
+    np.savez("MUG-varyN_AllImitate_Z"+str(Z)+"_n"+str(nMUG)+
+             "_beta"+str(beta)+"_Mmin.npz",
              Z=Z, generation=gen, nMUG=nMUG,
-             GroupSize=N, GroupCutoff=M, beta=beta,
+             GroupSize=N_arr, GroupCutoff_arr=N_arr-1, beta=beta,
              payoffs=payoff_evolution, strategies=strategy_evolution)
-    '''
+    
+    print(time.time()-tt)
+    plt.clf()
+    strategyM_mean = np.mean(np.mean(np.mean(
+        strategy_evolution[:,:,-250:,:], axis=1), axis=1), axis=1)
+    plt.plot(N_arr, strategyM_mean[:,0], 'bo-', label="<<<p>>>")
+    plt.plot(N_arr, strategyM_mean[:,1], 'go-', label="<<<q>>>")
+    plt.title("Z="+str(Z)+" N="+str(N)+" min cutoff")
+    plt.xlabel("N - group size")
+    plt.legend()
+    plt.savefig("Z100_Mmin_qpVSN.png")
+    plt.show()
